@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        html {
+            width: 100%;
+            height: 100vh;
+            background: #005;
+            /*border: 5px groove #00f;*/
+        }
+
+        body {
+            position: fixed;
+            width: 100%;
+            height: 100vh;
+            background: #f00;
+        }
+
+        #canvas {
+            /*border: 5px solid red;*/
+            position: absolute;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: "#f00"
+        }
+
+        .controller-container {
+            position: absolute;
+            display: flex;
+            width: 100%;
+            background: transparent;
+            bottom: 50px;
+            align-items: center;
+            justify-content: space-around;
+            border-top: 3px dashed #bbb;
+            padding: 1.5rem 0;
+        }
+
+        .ana-out {
+            position: relative;
+            background: rgb(200, 180, 50);
+            display: flex;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            overflow: visible;
+            border: solid 3px #fff;
+            box-sizing: content-box;
+            box-shadow: 0 .1rem 1.5rem .5rem #000;
+        }
+
+        .ana-in {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: solid 3px #fff;
+            border-radius: 50%;
+            background: hsla(0, 0%, 79%, 0.5);
+            box-sizing: border-box;
+            transform: translate(25px, 25px);
+        }
+
+        .block {
+            width: 20px;
+            height: 20px;
+            background: #eee;
+            left: 10px;
+            position: absolute;
+            top: 155px;
+            border-radius: 50%;
+        }
+
+        .menu {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 80%;
+            height: 50px;
+            background: #000;
+            display: flex;
+            justify-content: center;
+        }
+
+        button {
+            padding: .5rem 1rem;
+            background: #555;
+            color: #fff;
+            border: 0;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 .1rem 1.5rem .5rem #000;
+        }
+
+        .toolbox {
+            position: absolute;
+            top: 10px;
+            left: 40px;
+            width: 70%;
+            background: #222;
+            display: flex;
+            gap: .5rem;
+            padding: .5rem;
+            border-radius: 10px;
+            color: white;
+            font-size: .8em;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="toolbox">
+        Board color
+        <select id="selectedBoardColor" onchange="pickBoardColor()">
+            <option selected="true" value="#ff0000">Red</option>
+            <option value="#000">Black</option>
+            <option value="#fff">White</option>
+            <option value="#fd841f">Orange</option>
+            <option value="#fb2576">Pink</option>
+            <option value="#ffea20">Amber</option>
+            <option value="#00ff00">Green</option>
+            <option value="#362fd9">Blue</option>
+        </select>
+        Pen Color
+        <select id="selectedPenColor" onchange="pickPenColor()">
+            <option value="#f6490d">Red</option>
+            <option selected="true" value="#000">Black</option>
+            <option value="#fff">White</option>
+            <option value="#fd841f">Orange</option>
+            <option value="#fb2576">Pink</option>
+            <option value="#ffea20">Amber</option>
+            <option value="#03c988">Green</option>
+            <option value="#362fd9">Blue</option>
+        </select>
+    </div>
+    <div id="controllerContainer" class="controller-container">
+        <button id="holdBtn" onclick="hold()">Draw</button>
+        <div width="20" id="anaOut" class="ana-out">
+            <div id="anaIn" class="ana-in"></div>
+        </div>
+        <button onclick="clean()">Clear</button>
+    </div>
+    <div class="block" id="block"></div>
+
+    <script type="text/javascript">
+        let drawBool = false
+        let penColor = "#222"
+        const canvas = document.getElementById("canvas")
+        const ctx = canvas.getContext('2d')
+
+        canvas.width = document.body.clientWidth
+        canvas.height = document.body.clientHeight
+
+        ctx.fillStyle = "#000"
+
+        var startX, startY, lastX = 0, lastY = 0, movX = 0, movY = 0, Yspd = 0, Xspd = 0;
+
+        anaIn.addEventListener('mousedown', function (e) {
+            this.style.transition = "0s"
+            startX = e.clientX
+            startY = e.clientY
+        });
+
+        anaIn.addEventListener('mousemove', function (e) {
+            movX = e.clientX - startX
+            movY = e.clientY - startY
+            this.style.left = ((movX ** 2 + movY ** 2 > 50 ** 2) ? (movX) * 50 / Math.sqrt(movX ** 2 + movY ** 2) + "px" : movX + "px")
+            this.style.top = ((movY ** 2 + movX ** 2 > 50 ** 2) ? (movY) * 50 / Math.sqrt(movX ** 2 + movY ** 2) + "px" : movY + "px")
+        });
+
+        anaIn.addEventListener('mouseup', function (e) {
+            this.style.transition = "0.3s"
+            Yspd = 0, Xspd = 0
+            movX = 0; movY = 0;
+            lastX = parseFloat(block.style.left)
+            lastY = parseFloat(block.style.top)
+            this.style.left = "0px"
+            this.style.top = "0px"
+        });
+
+        function Animate() {
+            Yspd += movY / 20
+            Xspd += movX / 20
+            if (parseInt(block.style.left) + lastX + Xspd > 5 && lastX + Xspd < parseInt(canvas.width) - 25) {
+                block.style.left = lastX + Xspd + "px"
+            }
+            if (parseInt(block.style.top) + lastY + Yspd > 5 && lastY + Yspd < parseInt(canvas.height) - 210) {
+
+                block.style.top = lastY + Yspd + "px"
+            }
+            if (drawBool)
+                ctx.fillRect(parseInt(block.style.left), parseInt(block.style.top), 5, 5)
+        }
+
+        function start() {
+            Animate()
+            window.requestAnimationFrame(start)
+        }
+
+        let holdInt = -1
+        function hold() {
+            drawBool = !drawBool;
+            holdBtn.style.background = drawBool ? "#aa0" : "#555";
+            holdBtn.style.boxShadow = drawBool ? "0 .1rem 1.5rem .5rem #ff0" : "0 .1rem 1.5rem .5rem #000";
+            holdBtn.style.color = drawBool ? "black" : "white";
+            holdInt *= -1
+        }
+
+        function clean() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+        }
+
+        function pickPenColor() {
+            ctx.fillStyle = selectedPenColor.value
+        }
+
+        function pickBoardColor() {
+            document.body.style.backgroundColor = selectedBoardColor.value
+        }
+
+        document.body.onload = () => {
+            block.style.left = "40px"
+            block.style.top = "40px"
+        }
+
+        start();
+    </script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        html {
+            width: 100%;
+            height: 100vh;
+            background: #333;
+        }
+
+        body {
+            position: fixed;
+            width: 100%;
+            height: 100vh;
+            background: #444;
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+
+        #canvas {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: "#f00";
+            cursor: crosshair;
+        }
+
+        .toolbox {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        select {
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            background: #555;
+            color: white;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #555;
+            color: white;
+            cursor: pointer;
+        }
+
+        .controller-container {
+            position: absolute;
+            display: flex;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            right: 10px;
+            align-items: center;
+            justify-content: space-around;
+            border-left: 3px dashed #bbb;
+            padding: 1.5rem 0;
+        }
+
+        .ana-out {
+            position: relative;
+            background: rgba(200, 180, 50, 0.8);
+            display: flex;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            overflow: visible;
+            border: solid 3px #fff;
+            box-sizing: content-box;
+            box-shadow: 0 .1rem 1.5rem .5rem #000;
+        }
+
+        .ana-in {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: solid 3px #fff;
+            border-radius: 50%;
+            background: hsla(0, 0%, 79%, 0.5);
+            box-sizing: border-box;
+            transform: translate(20px, 20px);
+        }
+
+        .block {
+            width: 15px;
+            height: 15px;
+            background: #eee;
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .menu {
+            position: absolute;
+            top: 20px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div class="toolbox">
+        <select id="selectedBoardColor" onchange="pickBoardColor()">
+            <option selected="true" value="#333">Dark Gray</option>
+            <option value="#222">Charcoal</option>
+            <option value="#444">Steel</option>
+            <option value="#555">Gray</option>
+            <option value="#666">Slate</option>
+        </select>
+        <select id="selectedPenColor" onchange="pickPenColor()">
+            <option value="#f6490d">Red</option>
+            <option selected="true" value="#fff">White</option>
+            <option value="#fd841f">Orange</option>
+            <option value="#fb2576">Pink</option>
+            <option value="#03c988">Green</option>
+            <option value="#362fd9">Blue</option>
+        </select>
+        <select id="selectedPenThickness" onchange="setPenThickness()">
+            <option value="2">Thin</option>
+            <option selected="true" value="5">Medium</option>
+            <option value="8">Thick</option>
+            <option value="12">Extra Thick</option>
+        </select>
+    </div>
+    <div class="controller-container">
+        <div id="anaOut" class="ana-out">
+            <div id="anaIn" class="ana-in"></div>
+        </div>
+        <button id="holdBtn" onclick="hold()">Draw</button>
+        <button onclick="clean()">Clear</button>
+    </div>
+    <div class="block" id="block"></div>
+
+    <script type="text/javascript">
+        let drawBool = false
+        let penColor = "#fff"
+        let penThickness = 5;
+        const canvas = document.getElementById("canvas")
+        const ctx = canvas.getContext('2d')
+
+        canvas.width = document.body.clientWidth
+        canvas.height = document.body.clientHeight
+
+        ctx.fillStyle = "#000"
+
+        var el, x, y, slop;
+        var zeroAngle = 0, startX, startY, oneAngle = 90, lastX = 0,
+            lastY = 0, movX = 0, movY = 0, Yspd = 0, Xspd = 0;
+
+        anaIn.addEventListener('mousedown', function (e) {
+            this.style.transition = "0s"
+            startX = e.clientX
+            startY = e.clientY
+        });
+
+        anaIn.addEventListener('mousemove', function (e) {
+            movX = e.clientX - startX
+            movY = e.clientY - startY
+            this.style.left = ((movX ** 2 + movY ** 2 > 50 ** 2) ? (movX) * 50 / Math.sqrt(movX ** 2 + movY ** 2) + "px" : movX + "px")
+            this.style.top = ((movY ** 2 + movX ** 2 > 50 ** 2) ? (movY) * 50 / Math.sqrt(movX ** 2 + movY ** 2) + "px" : movY + "px")
+        });
+
+        anaIn.addEventListener('mouseup', function (e) {
+            this.style.transition = "0.3s"
+            Yspd = 0, Xspd = 0
+            movX = 0; movY = 0;
+            lastX = parseFloat(block.style.left)
+            lastY = parseFloat(block.style.top)
+            this.style.left = "0px"
+            this.style.top = "0px"
+        });
+
+        function Animate() {
+            Yspd += movY / 20
+            Xspd += movX / 20
+            if (parseInt(block.style.left) + lastX + Xspd > 5 && lastX + Xspd < parseInt(canvas.width) - 25) {
+                block.style.left = lastX + Xspd + "px"
+            }
+            if (parseInt(block.style.top) + lastY + Yspd > 5 && lastY + Yspd < parseInt(canvas.height) - 210) {
+                block.style.top = lastY + Yspd + "px"
+            }
+            if (drawBool) {
+                ctx.beginPath();
+                ctx.fillStyle = penColor;
+                ctx.arc(parseInt(block.style.left), parseInt(block.style.top), penThickness, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function start() {
+            Animate()
+            window.requestAnimationFrame(start)
+        }
+
+        let holdInt = -1
+        function hold() {
+            drawBool = !drawBool;
+            holdBtn.style.background = drawBool ? "#aa0" : "#555";
+            holdBtn.style.boxShadow = drawBool ? "0 .1rem 1.5rem .5rem #ff0" : "0 .1rem 1.5rem .5rem #000";
+            holdBtn.style.color = drawBool ? "black" : "white";
+            holdInt *= -1
+        }
+
+        function clean() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+        }
+
+        function pickPenColor() {
+            penColor = selectedPenColor.value
+        }
+
+        function pickBoardColor() {
+            document.body.style.backgroundColor = selectedBoardColor.value
+        }
+
+        function setPenThickness() {
+            penThickness = parseInt(selectedPenThickness.value);
+        }
+
+        document.body.onload = () => {
+            block.style.left = "40px"
+            block.style.top = "40px"
+        }
+
+        start();
+    </script>
+</body>
+</html>
